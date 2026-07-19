@@ -1,45 +1,156 @@
-import os
 from dotenv import load_dotenv
+
+from langchain_community.document_loaders import PyPDFDirectoryLoader
+from langchain_community.retrievers import BM25Retriever
+
+from langchain_text_splitters import RecursiveCharacterTextSplitter
+
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
 from langchain_chroma import Chroma
 
+from langchain_classic.retrievers import EnsembleRetriever
+
 load_dotenv()
 
+# ---------------------------------------------------
+# Configuration
+# ---------------------------------------------------
 
-embedding = GoogleGenerativeAIEmbeddings(
-    model="gemini-embedding-2-preview"
-)
+PDF_DIRECTORY = "data/pdfs"
+CHROMA_DIRECTORY = "chroma_store"
 
-vectorstore = Chroma(
-    persist_directory="chroma_store",
-    embedding_function=embedding
-)
+CHUNK_SIZE = 1000
+CHUNK_OVERLAP = 150
+
+TOP_K = 5
+
+EMBEDDING_MODEL = "gemini-embedding-2-preview"
+
+# ---------------------------------------------------
+# Cache
+# ---------------------------------------------------
+
+_retriever = None
 
 
-def retrieve_documents(query: str):
+# ---------------------------------------------------
+# Vector Retriever
+# ---------------------------------------------------
 
-    retriever = vectorstore.as_retriever(
-        search_type="similarity_score_threshold",
-        search_kwargs={
-            "k": 2,
-            "score_threshold": 0.5
-        }
+def get_vector_retriever():
+
+    embedding_model = GoogleGenerativeAIEmbeddings(
+        model=EMBEDDING_MODEL
     )
 
-    results = retriever.invoke(query)
+    vector_store = Chroma(
+        persist_directory=CHROMA_DIRECTORY,
+        embedding_function=embedding_model,
+    )
 
-    if not results:
-        return None
+    return vector_store.as_retriever(
+        search_kwargs={"k": TOP_K}
+    )
 
-    return results
+
+# ---------------------------------------------------
+# BM25 Retriever
+# ---------------------------------------------------
+
+def get_bm25_retriever():
+
+    loader = PyPDFDirectoryLoader(PDF_DIRECTORY)
+
+    documents = loader.load()
+
+    splitter = RecursiveCharacterTextSplitter(
+        chunk_size=CHUNK_SIZE,
+        chunk_overlap=CHUNK_OVERLAP,
+    )
+
+    chunks = splitter.split_documents(documents)
+
+    bm25 = BM25Retriever.from_documents(chunks)
+
+    bm25.k = TOP_K
+
+    return bm25
 
 
-# if __name__ == "__main__":
+# ---------------------------------------------------
+# Build Hybrid Retriever
+# ---------------------------------------------------
 
-#     # docs = retrieve_documents("What is AI infrastructure?")
+def build_retriever():
 
-#     # if docs:
-#     #     for i, doc in enumerate(docs, 1):
-#     #         print(f"\n========== Result {i} ==========")
-#     #         print(doc.page_content)
-#     #         print(doc.metadata)
+    print("Building Hybrid Retriever...")
+
+    vector_retriever = get_vector_retriever()
+
+    bm25_retriever = get_bm25_retriever()
+
+    return EnsembleRetriever(
+        retrievers=[
+            bm25_retriever,
+            vector_retriever,
+        ],
+        weights=[0.5, 0.5],
+    )
+
+
+# ---------------------------------------------------
+# Cached Retriever
+# ---------------------------------------------------
+
+def get_retriever():
+
+    global _retriever
+
+    if _retriever is None:
+
+        _retriever = build_retriever()
+
+        print("Retriever ready.")
+
+    return _retriever
+
+
+# ---------------------------------------------------
+# Retrieve Documents
+# ---------------------------------------------------
+
+def retrieve_documents(question: str):
+
+    retriever = get_retriever()
+
+    return retriever.invoke(question)
+
+
+# ---------------------------------------------------
+# Test
+# ---------------------------------------------------
+
+if __name__ == "__main__":
+
+    while True:
+
+        question = input("\nAsk a question (type 'exit' to quit): ")
+
+        if question.lower() == "exit":
+            break
+
+        docs = retrieve_documents(question)
+
+        print(f"\nRetrieved {len(docs)} documents\n")
+
+        for index, doc in enumerate(docs, start=1):
+
+            print(f"========== Document {index} ==========")
+
+            print(doc.metadata)
+
+            print("-" * 50)
+
+            print(doc.page_content[:400])
+
+            print()

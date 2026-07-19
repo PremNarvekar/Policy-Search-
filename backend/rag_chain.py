@@ -1,43 +1,64 @@
 from dotenv import load_dotenv
-from retriever import retrieve_documents
+
 from langchain_google_genai import ChatGoogleGenerativeAI
+
+from backend.retriever import retrieve_documents
 
 load_dotenv()
 
+# ---------------------------------------------------
+# Configuration
+# ---------------------------------------------------
 
-model = ChatGoogleGenerativeAI(
-    model="gemini-2.5-flash",
-    temperature=0.3,
-)
+MODEL_NAME = "gemini-2.5-flash"
 
+TEMPERATURE = 0.3
 
-def rag(question: str):
-
-    documents = retrieve_documents(question)
-
-    if not documents:
-        return "No relevant information found in the uploaded documents."
-
-    # for i, doc in enumerate(documents, 1):
-    #     print(f"\n========== Result {i} ==========")
-    #     print(f"PDF Name : {doc.metadata['source']}")
-    #     print(f"Page     : {doc.metadata['page'] + 1}")
-    #     print(f"Title    : {doc.metadata.get('title')}")
-    #     print("-" * 50)
-    #     print(doc.page_content)
-    #     print("=" * 70)
-
-    context = "\n\n".join(
-        doc.page_content for doc in documents
-    )
-
-    prompt = f"""
+SYSTEM_PROMPT = """
 You are a helpful AI assistant.
 
-Answer ONLY using the context below.
+Answer ONLY using the provided context.
 
-If the answer is not present in the context, say:
+If the answer is not available in the context, reply:
+
 "I couldn't find that information in the uploaded documents."
+
+Be concise, accurate, and avoid making assumptions.
+"""
+
+
+# ---------------------------------------------------
+# Load LLM
+# ---------------------------------------------------
+
+def get_llm():
+
+    return ChatGoogleGenerativeAI(
+        model=MODEL_NAME,
+        temperature=TEMPERATURE,
+    )
+
+
+# ---------------------------------------------------
+# Build Context
+# ---------------------------------------------------
+
+def build_context(documents):
+
+    return "\n\n".join(
+        doc.page_content
+        for doc in documents
+    )
+
+
+# ---------------------------------------------------
+# Build Prompt
+# ---------------------------------------------------
+
+def build_prompt(question: str, context: str):
+
+    return f"""
+{SYSTEM_PROMPT}
 
 Context:
 {context}
@@ -46,18 +67,44 @@ Question:
 {question}
 """
 
-    response = model.invoke(prompt)
-    print(prompt)
+
+# ---------------------------------------------------
+# Generate Answer
+# ---------------------------------------------------
+
+def rag(question: str):
+
+    documents = retrieve_documents(question)
+
+    if not documents:
+        return "No relevant information found."
+
+    context = build_context(documents)
+
+    prompt = build_prompt(
+        question=question,
+        context=context,
+    )
+
+    llm = get_llm()
+
+    response = llm.invoke(prompt)
 
     return response.content
 
 
-   
-
+# ---------------------------------------------------
+# Testing
+# ---------------------------------------------------
 
 if __name__ == "__main__":
 
-    answer = rag("What are the highest-value AI opportunities?")
+    question = "What are the highest-value AI opportunities?"
+
+    answer = rag(question)
+
+    print("\nQuestion:")
+    print(question)
+
+    print("\nAnswer:")
     print(answer)
-    
-    

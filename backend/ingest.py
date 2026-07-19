@@ -1,58 +1,110 @@
 import os
 from dotenv import load_dotenv
+
 from langchain_community.document_loaders import PyPDFDirectoryLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
 from langchain_chroma import Chroma
 
 load_dotenv()
-api_key=os.getenv("GOOGLE_API_KEY")
 
-def ingest_loader():
-    loader = PyPDFDirectoryLoader("data/pdfs")
+# -----------------------------
+# Configuration
+# -----------------------------
+
+PDF_DIRECTORY = "data/pdfs"
+CHROMA_DIRECTORY = "chroma_store"
+
+CHUNK_SIZE = 1000
+CHUNK_OVERLAP = 150
+
+EMBEDDING_MODEL = "gemini-embedding-2-preview"
+
+
+# -----------------------------
+# Load PDF Documents
+# -----------------------------
+
+def load_documents():
+
+    loader = PyPDFDirectoryLoader(PDF_DIRECTORY)
     documents = loader.load()
-   
-    chunk_size=1000
-    chunk_overlap=150
-    
-    spillter = RecursiveCharacterTextSplitter(
-        
-        chunk_size=chunk_size,
-        chunk_overlap=chunk_overlap,
-        length_function=len,
-        separators=["\n\n", "\n", " ", ""]
+
+    if not documents:
+        raise ValueError("No PDF documents found.")
+
+    print(f"Loaded {len(documents)} pages.")
+
+    return documents
+
+
+# -----------------------------
+# Split Documents
+# -----------------------------
+
+def split_documents(documents):
+
+    splitter = RecursiveCharacterTextSplitter(
+        chunk_size=CHUNK_SIZE,
+        chunk_overlap=CHUNK_OVERLAP,
     )
 
-    chunks = spillter.split_documents(documents)
+    chunks = splitter.split_documents(documents)
 
-    # print(chunks)
+    print(f"Created {len(chunks)} chunks.")
 
-    # print(f"Total pages: {len(documents)}")
-    # print(f"Total chunks: {len(chunks)}")
-    # print(chunks[0].page_content)
-    # print(chunks[0].metadata)
+    return chunks
 
-    embedding = GoogleGenerativeAIEmbeddings(model="gemini-embedding-2-preview")
-    # vector = embedding.embed_documents(["chunks"])
-    # google_api_key=api_key
 
-    chunks = chunks[:10]
-    
+# -----------------------------
+# Create Embedding Model
+# -----------------------------
+
+def get_embedding_model():
+
+    return GoogleGenerativeAIEmbeddings(
+        model=EMBEDDING_MODEL
+    )
+
+
+# -----------------------------
+# Build Chroma Vector Store
+# -----------------------------
+
+def build_vector_store(chunks):
+
+    embedding_model = get_embedding_model()
 
     Chroma.from_documents(
         documents=chunks,
-        embedding=embedding,
-        persist_directory="chroma_store"
+        embedding=embedding_model,
+        persist_directory=CHROMA_DIRECTORY,
     )
 
+    print("Vector database created successfully.")
 
-    print(f"strored{len(chunks)} chunks in vector DB")
 
-   
+# -----------------------------
+# Ingestion Pipeline
+# -----------------------------
+
+def ingest():
+
+    try:
+
+        documents = load_documents()
+
+        chunks = split_documents(documents)
+
+        build_vector_store(chunks)
+
+        print("\nIngestion completed successfully.")
+
+    except Exception as e:
+
+        print(f"\nIngestion failed: {e}")
+
 
 if __name__ == "__main__":
-    ingest_loader()
 
-
-
-
+    ingest()
