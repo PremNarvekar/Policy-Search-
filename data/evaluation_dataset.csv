@@ -1,0 +1,5 @@
+question,ground_truth
+"What is the document about?","The document explains its main purpose."
+"What technologies are mentioned?","LangChain, ChromaDB, Gemini"
+"Who is the target audience?","AI engineers and businesses."
+"Summarize the document.","A concise summary of the document."
