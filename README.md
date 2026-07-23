@@ -180,13 +180,4 @@ policysearch/
 
 ---
 
-## Security Notes
 
-> ⚠️ **Never commit your `.env` file.** It is listed in `.gitignore`.  
-> If you accidentally committed secrets, rotate all API keys immediately.
-
----
-
-## License
-
-MIT
