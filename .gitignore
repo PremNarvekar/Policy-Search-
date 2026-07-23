@@ -1,7 +1,12 @@
-# Python bytecode and caches
+# ==================================================
+# Python
+# ==================================================
 __pycache__/
 *.py[cod]
 *$py.class
+*.pyo
+*.pyd
+.Python
 
 # Virtual environments
 .venv/
@@ -9,34 +14,67 @@ venv/
 env/
 ENV/
 
-# Environment files
+# ==================================================
+# Environment & Secrets — NEVER COMMIT THESE
+# ==================================================
 .env
 .env.local
 .env.*.local
 
-# IDE/editor files
+# ==================================================
+# IDE / Editor
+# ==================================================
 .vscode/
 .idea/
 *.swp
 *.swo
+*.sublime-project
+*.sublime-workspace
 
-# OS files
+# ==================================================
+# OS
+# ==================================================
 .DS_Store
+.DS_Store?
 Thumbs.db
+ehthumbs.db
+Desktop.ini
 
+# ==================================================
 # Logs
+# ==================================================
 *.log
+logs/
 
-# Build and test artifacts
+# ==================================================
+# Build & Test Artifacts
+# ==================================================
 build/
 dist/
 *.egg-info/
 .pytest_cache/
 .coverage
 htmlcov/
+.mypy_cache/
+.ruff_cache/
 
-# Data and local uploads
+# ==================================================
+# Data & ML Artifacts — do not commit large files
+# ==================================================
 data/*.pdf
 data/**/*.pdf
 *.pkl
 *.faiss
+
+# ==================================================
+# Vector Store — persisted locally, not in version control
+# ==================================================
+chroma_store/
+
+# ==================================================
+# Frontend
+# ==================================================
+frontend/node_modules/
+frontend/dist/
+frontend/.env
+frontend/.env.local

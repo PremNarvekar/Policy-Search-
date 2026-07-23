@@ -3,4 +3,22 @@ __pycache__/
 *.pyo
 *.pyd
 .env
+.env.*
 .venv/
+
+# Frontend build artifacts — not needed in Docker image
+frontend/node_modules/
+frontend/dist/
+frontend/.env
+frontend/.env.*
+
+# Vector store — mount as a volume in production
+chroma_store/
+
+# Dev & test artifacts
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.log
+htmlcov/
+.coverage

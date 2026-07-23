@@ -1,4 +1,5 @@
-import os
+import logging
+
 from dotenv import load_dotenv
 
 from langchain_community.document_loaders import PyPDFDirectoryLoader
@@ -6,89 +7,103 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
 from langchain_chroma import Chroma
 
+from backend.config import settings
+
 load_dotenv()
 
-# -----------------------------
-# Configuration
-# -----------------------------
-
-PDF_DIRECTORY = "data/pdfs"
-CHROMA_DIRECTORY = "chroma_store"
-
-CHUNK_SIZE = 1000
-CHUNK_OVERLAP = 150
-
-EMBEDDING_MODEL = "gemini-embedding-2-preview"
+logger = logging.getLogger(__name__)
 
 
-# -----------------------------
+# ---------------------------------------------------
 # Load PDF Documents
-# -----------------------------
+# ---------------------------------------------------
 
 def load_documents():
 
-    loader = PyPDFDirectoryLoader(PDF_DIRECTORY)
+    logger.info("Loading PDF documents...")
+
+    loader = PyPDFDirectoryLoader(
+        settings.PDF_DIRECTORY
+    )
+
     documents = loader.load()
 
     if not documents:
         raise ValueError("No PDF documents found.")
 
-    print(f"Loaded {len(documents)} pages.")
+    logger.info(
+        "Loaded %d page(s).",
+        len(documents),
+    )
 
     return documents
 
 
-# -----------------------------
+# ---------------------------------------------------
 # Split Documents
-# -----------------------------
+# ---------------------------------------------------
 
 def split_documents(documents):
 
+    logger.info("Splitting documents into chunks...")
+
     splitter = RecursiveCharacterTextSplitter(
-        chunk_size=CHUNK_SIZE,
-        chunk_overlap=CHUNK_OVERLAP,
+        chunk_size=settings.CHUNK_SIZE,
+        chunk_overlap=settings.CHUNK_OVERLAP,
     )
 
     chunks = splitter.split_documents(documents)
 
-    print(f"Created {len(chunks)} chunks.")
+    logger.info(
+        "Created %d chunk(s).",
+        len(chunks),
+    )
 
     return chunks
 
 
-# -----------------------------
-# Create Embedding Model
-# -----------------------------
+# ---------------------------------------------------
+# Embedding Model
+# ---------------------------------------------------
 
 def get_embedding_model():
 
+    logger.info(
+        "Loading embedding model: %s",
+        settings.EMBEDDING_MODEL,
+    )
+
     return GoogleGenerativeAIEmbeddings(
-        model=EMBEDDING_MODEL
+        model=settings.EMBEDDING_MODEL,
     )
 
 
-# -----------------------------
-# Build Chroma Vector Store
-# -----------------------------
+# ---------------------------------------------------
+# Build Vector Store
+# ---------------------------------------------------
 
 def build_vector_store(chunks):
+
+    logger.info("Creating Chroma vector database...")
 
     embedding_model = get_embedding_model()
 
     Chroma.from_documents(
         documents=chunks,
         embedding=embedding_model,
-        persist_directory=CHROMA_DIRECTORY,
+        persist_directory=settings.CHROMA_PATH,
     )
 
-    print("Vector database created successfully.")
+    logger.info("Vector database created successfully.")
 
 
-# -----------------------------
+# ---------------------------------------------------
 # Ingestion Pipeline
-# -----------------------------
+# ---------------------------------------------------
 
 def ingest():
+
+    logger.info("Starting ingestion pipeline...")
 
     try:
 
@@ -98,12 +113,18 @@ def ingest():
 
         build_vector_store(chunks)
 
-        print("\nIngestion completed successfully.")
+        logger.info("Ingestion completed successfully.")
 
-    except Exception as e:
+    except Exception:
 
-        print(f"\nIngestion failed: {e}")
+        logger.exception("Ingestion failed.")
 
+        raise
+
+
+# ---------------------------------------------------
+# Local Testing
+# ---------------------------------------------------
 
 if __name__ == "__main__":
 
